@@ -64,8 +64,7 @@ def get_7z_errors(stdout):
     if not stdout or not stdout.strip():
         return
 
-    find_7z_errors = re.compile('^Error:(.*)$',
-                                re.MULTILINE | re.DOTALL).findall
+    find_7z_errors = re.compile('^Error:(.*)$', re.MULTILINE | re.DOTALL).findall
 
     stdlow = stdout.lower()
     for err, msg in sevenzip_errors:

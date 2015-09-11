@@ -153,6 +153,8 @@ def new_name(location, is_dir=False):
     parent directory, ignoring the case of the name.
     The case of the name is ignored to ensure that similar results are returned
     across case sensitive (*nix) and case insensitive file systems.
+    Some characters illegal for us in file names on some OS are replaced with _
+    such as a colon ":" on Windows.
 
     To find a new unique name:
      * pad a directory name with _X where X is an incremented number.
@@ -160,27 +162,29 @@ def new_name(location, is_dir=False):
        the extension unchanged.
     """
     assert location
-    
+
     location = location.rstrip('\\/')
     name = fileutils.file_name(location).strip()
-    if (not name or name == '.' 
+    if (not name or name == '.'
         # windows bare drive path as in c: or z:
-        or (name and len(name)==2 and name.endswith(':'))):
+        or (name and len(name) == 2 and name.endswith(':'))):
         name = 'file'
 
     parent = fileutils.parent_directory(location)
     # all existing files or directory as lower case
     siblings_lower = set(s.lower() for s in os.listdir(parent))
 
-    if name.lower() not in siblings_lower:
-        return posixpath.join(parent, name)
+    portable_name = name.replace(':', '')
 
-    ext = fileutils.file_extension(name)
-    base_name = fileutils.file_base_name(name)
+    if portable_name.lower() not in siblings_lower:
+        return posixpath.join(parent, portable_name)
+
+    ext = fileutils.file_extension(portable_name)
+    base_name = fileutils.file_base_name(portable_name)
     if is_dir:
         # directories have no extension
         ext = ''
-        base_name = name
+        base_name = portable_name
 
     counter = 1
     while 1:
