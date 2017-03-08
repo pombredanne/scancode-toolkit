@@ -1,6 +1,7 @@
 licenses:
-    - gpl-2.0-plus
-    - gpl-2.0-plus-openmotif
-    - lgpl-2.1-plus
     - mpl-1.1
-sort: yes
+    - gpl-2.0-plus
+    - lgpl-2.1-plus
+    - gpl-2.0-plus-openmotif
+license_choice: yes
+notes: Nedit tri license + gpl openmotif exception

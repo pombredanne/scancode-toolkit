@@ -1,6 +1,8 @@
 licenses:
+    - reportbug
+    - gpl
     - gpl-2.0-plus
     - gpl-2.0-plus
     - public-domain
-expected_failure: yes
-sort: yes
+    - reportbug
+

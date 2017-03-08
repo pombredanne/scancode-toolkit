@@ -1,5 +1,5 @@
 licenses:
     - gpl-2.0-plus
     - mit
-expected_failure: yes
-sort: yes
+    - gpl
+

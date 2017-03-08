@@ -1,7 +1,16 @@
 licenses:
+    - lgpl
+    - gpl
+    - bsd-new
+    - bsd-new
     - bsd-new
     - gpl
     - lgpl
-    - net-snmp
-expected_failure: yes
-sort: yes
+    - lgpl
+    - lgpl
+    - lgpl
+    - bsd-new
+    - historical
+    - historical
+    - bsd-new
+

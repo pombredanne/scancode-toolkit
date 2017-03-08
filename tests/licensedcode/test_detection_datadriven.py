@@ -27,25 +27,27 @@ from __future__ import absolute_import, print_function
 import codecs
 from collections import OrderedDict
 import os
-from os.path import dirname
+from os.path import abspath
 from os.path import join
-from unittest.case import expectedFailure
+import unittest
 
 from commoncode import fileutils
-from commoncode.testcase import FileBasedTesting
 from commoncode import text
 
 from licensedcode import saneyaml
-from licensedcode import detect
+
+from license_test_utils import make_license_test_function
 
 
-test_data_dir = join(dirname(__file__), 'data/licenses')
+TEST_DATA_DIR = os.path.join(os.path.dirname(__file__), 'data/licenses')
+
+# set to True to print matched texts on test failure.
+TRACE_TEXTS = True
 
 
 """
 Data-driven tests using expectations stored in YAML files.
 """
-
 
 class LicenseTest(object):
     """
@@ -77,18 +79,31 @@ class LicenseTest(object):
                 data = saneyaml.load(df.read())
 
         self.licenses = data.get('licenses', [])
+
+        # TODO: this is for future support of license expressions
+        self.license = data.get('license')
+        self.license_choice = data.get('license_choice')
+
         self.notes = data.get('notes')
-        self.sort = data.get('sort', False)
+
+        # True if the test is expected to fail
         self.expected_failure = data.get('expected_failure', False)
+
+        # True if the test should be skipped
+        self.skip = data.get('skip', False)
 
     def asdict(self):
         dct = OrderedDict()
         if self.licenses:
             dct['licenses'] = self.licenses
+        if self.license:
+            dct['license'] = self.licenses
+        if self.license_choice:
+            dct['license_choice'] = self.license_choice
         if self.expected_failure:
             dct['expected_failure'] = self.expected_failure
-        if self.sort and self.licenses and len(self.licenses) > 1:
-            dct['sort'] = self.sort
+        if self.skip:
+            dct['skip'] = self.skip
         if self.notes:
             dct['notes'] = self.notes
         return dct
@@ -104,7 +119,7 @@ class LicenseTest(object):
             df.write(as_yaml)
 
 
-def load_license_tests(test_dir=test_data_dir):
+def load_license_tests(test_dir=TEST_DATA_DIR):
     """
     Yield an iterable of LicenseTest loaded from test data files in test_dir.
     """
@@ -114,8 +129,10 @@ def load_license_tests(test_dir=test_data_dir):
     test_files = {}
     for top, _, files in os.walk(test_dir):
         for yfile in files:
+            if yfile. endswith('~'):
+                continue
             base_name = fileutils.file_base_name(yfile)
-            file_path = join(top, yfile)
+            file_path = abspath(join(top, yfile))
             if yfile.endswith('.yml'):
                 assert base_name not in data_files
                 data_files[base_name] = file_path
@@ -125,9 +142,11 @@ def load_license_tests(test_dir=test_data_dir):
 
     # ensure that each data file has a corresponding test file
     diff = set(data_files.keys()).symmetric_difference(set(test_files.keys()))
-    assert not diff
+    assert not diff, ('Orphaned license test file(s) found: '
+                      'test file without its YAML test descriptor '
+                      'or YAML test descriptor without its test file.')
 
-    # second, create pairs of a data_file and the corresponding test file
+    # second, create pairs of corresponding (data_file, test file) for files
     # that have the same base_name
     for base_name, data_file in data_files.items():
         test_file = test_files[base_name]
@@ -139,51 +158,29 @@ def build_tests(license_tests, clazz):
     Dynamically build test methods from a sequence of LicenseTest and attach
     these method to the clazz test class.
     """
+    # TODO: check that we do not have duplicated tests with same data and text
+
     for test in license_tests:
-        # path relative to the data directory
-        tfn = 'licenses/' + test.test_file_name
+        tfn = test.test_file_name
         test_name = 'test_detection_%(tfn)s' % locals()
         test_name = text.python_safe_name(test_name)
+
         # closure on the test params
-        test_method = make_test_function(test.licenses, tfn, test_name, sort=test.sort)
-        if test.expected_failure:
-            test_method = expectedFailure(test_method)
+        test_method = make_license_test_function(
+            test.licenses, test.test_file, test.data_file,
+            test_name=test_name,
+            expected_failure=test.expected_failure,
+            skip_test=test.skip and 'Skipping long test' or False,
+            trace_text=TRACE_TEXTS
+        )
+
         # attach that method to our test class
         setattr(clazz, test_name, test_method)
 
 
-def make_test_function(expected_licenses, test_file, test_name, sort=False):
-    """
-    Build a test function closing on tests arguments
-    """
-
-    def data_driven_test_function(self):
-        test_loc = self.get_test_loc(test_file)
-        result = list(detect.detect_license(test_loc, perfect=True))
-        # the detected license is the first member of the returned tuple
-        license_result = [d[0] for d in result]
-        try:
-            if sort:
-                assert sorted(expected_licenses) == sorted(license_result)
-            else:
-                assert expected_licenses == license_result
-        except:
-            # on failure, we compare against the full results to get
-            # additional failure details, including the test_file
-
-            if sort:
-                assert sorted(expected_licenses) == ['test file: ' + test_file] + sorted(result)
-            else:
-                assert expected_licenses == ['test file: ' + test_file] + result
-
-    data_driven_test_function.__name__ = test_name
-    data_driven_test_function.funcname = test_name
-    return data_driven_test_function
-
-
-class TestLicenseDataDriven(FileBasedTesting):
+class TestLicenseDataDriven(unittest.TestCase):
     # test functions are attached to this class at module import time
-    test_data_dir = join(dirname(__file__), 'data')
+    pass
 
 
 build_tests(license_tests=load_license_tests(), clazz=TestLicenseDataDriven)

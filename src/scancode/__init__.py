@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015 nexB Inc. and others. All rights reserved.
+# Copyright (c) 2016 nexB Inc. and others. All rights reserved.
 # http://nexb.com and https://github.com/nexB/scancode-toolkit/
 # The ScanCode software is licensed under the Apache License version 2.0.
 # Data generated with ScanCode require an acknowledgment.
@@ -22,4 +22,32 @@
 #  ScanCode is a free software code scanning tool from nexB Inc. and others.
 #  Visit https://github.com/nexB/scancode-toolkit/ for support and download.
 
-__version__ = '1.3.7'
+from __future__ import print_function
+from __future__ import absolute_import
+
+from os.path import dirname
+from os.path import abspath
+from os.path import getsize
+from os.path import getmtime
+from os.path import join
+from os.path import exists
+
+from commoncode import fileutils
+
+
+scan_src_dir = abspath(dirname(__file__))
+src_dir = dirname(scan_src_dir)
+root_dir = dirname(src_dir)
+cache_dir = join(root_dir, '.cache')
+scans_cache_dir = join(cache_dir, 'scan_results_caches')
+
+if not exists(scans_cache_dir):
+    fileutils.create_dir(scans_cache_dir)
+
+
+from pkg_resources import get_distribution, DistributionNotFound
+try:
+    __version__ = get_distribution('scancode-toolkit').version
+except DistributionNotFound:
+    # package is not installed ??
+    __version__ = '2.0.0rc3'

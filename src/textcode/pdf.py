@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015 nexB Inc. and others. All rights reserved.
+# Copyright (c) 2016 nexB Inc. and others. All rights reserved.
 # http://nexb.com and https://github.com/nexB/scancode-toolkit/
 # The ScanCode software is licensed under the Apache License version 2.0.
 # Data generated with ScanCode require an acknowledgment.
@@ -33,28 +33,25 @@ from pdfminer.pdfdocument import PDFDocument
 from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfparser import PDFParser
-from pdfminer.pdftypes import PDFException
 
 
 def get_text_lines(location):
     """
-    Return a list of text lines extracted from a pdf file at location.
+    Return a list of text lines extracted from a pdf file at `location`.
+    May raise exceptions.
     """
     extracted_text = StringIO()
     laparams = LAParams()
     with open(location, 'rb') as pdf_file:
-        try:
-            with contextlib.closing(PDFParser(pdf_file)) as parser:
-                document = PDFDocument(parser)
-                manager = PDFResourceManager()
-                with contextlib.closing(TextConverter(manager, extracted_text,
-                                                      laparams=laparams)) as extractor:
-                    interpreter = PDFPageInterpreter(manager, extractor)
-                    pages = PDFPage.create_pages(document)
-                    for page in pages:
-                        interpreter.process_page(page)
-                    extracted_text.seek(0)
-                    lines = extracted_text.readlines()
-        except PDFException:
-            return []
+        with contextlib.closing(PDFParser(pdf_file)) as parser:
+            document = PDFDocument(parser)
+            manager = PDFResourceManager()
+            with contextlib.closing(TextConverter(manager, extracted_text,
+                                                  laparams=laparams)) as extractor:
+                interpreter = PDFPageInterpreter(manager, extractor)
+                pages = PDFPage.create_pages(document)
+                for page in pages:
+                    interpreter.process_page(page)
+                extracted_text.seek(0)
+                lines = extracted_text.readlines()
     return lines

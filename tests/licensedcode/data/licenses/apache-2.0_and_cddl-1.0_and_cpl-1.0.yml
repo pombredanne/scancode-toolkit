@@ -1,6 +1,9 @@
 licenses:
     - apache-2.0
     - cddl-1.0
+    - cddl-1.0
     - cpl-1.0
-expected_failure: yes
-sort: yes
+    - cpl-1.0
+    - apache-2.0
+    - cddl-1.0
+

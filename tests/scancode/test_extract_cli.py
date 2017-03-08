@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015 nexB Inc. and others. All rights reserved.
+# Copyright (c) 2017 nexB Inc. and others. All rights reserved.
 # http://nexb.com and https://github.com/nexB/scancode-toolkit/
 # The ScanCode software is licensed under the Apache License version 2.0.
 # Data generated with ScanCode require an acknowledgment.
@@ -30,10 +30,10 @@ import click
 from click.testing import CliRunner
 
 from commoncode.fileutils import as_posixpath
-
-from scancode import extract_cli
+from commoncode.fileutils import file_iter
 from commoncode.testcase import FileDrivenTesting
 from commoncode.system import on_windows
+from scancode import extract_cli
 
 test_env = FileDrivenTesting()
 test_env.test_data_dir = os.path.join(os.path.dirname(__file__), 'data')
@@ -64,25 +64,25 @@ def test_extractcode_command_does_extract_verbose(monkeypatch):
     assert os.path.exists(os.path.join(test_dir, 'some.tar.gz-extract'))
     expected = [
         'Extracting archives...',
-        '/some.tar.gz',
-        '/broken.tar.gz',
-        '/tarred_gzipped.tgz',
+        'some.tar.gz',
+        'broken.tar.gz',
+        'tarred_gzipped.tgz',
         'ERROR extracting',
-        "/broken.tar.gz: 'Unrecognized archive format'",
+        "broken.tar.gz: 'Unrecognized archive format'",
         'Extracting done.',
     ]
     for e in expected:
         assert e in result.output
 
 
-def test_extractcode_command_does_no_show_anything_if_not_using_a_tty(monkeypatch):
+def test_extractcode_command_always_shows_something_if_not_using_a_tty_verbose_or_not(monkeypatch):
     test_dir = test_env.get_test_loc('extract/some.tar.gz', copy=True)
     monkeypatch.setattr(click._termui_impl, 'isatty', lambda _: False)
     runner = CliRunner()
     result = runner.invoke(extract_cli.extractcode, ['--verbose', test_dir])
-    assert '' == result.output
+    assert all(x in result.output for x in ('Extracting archives...', 'Extracting: some.tar.gz', 'Extracting done.'))
     result = runner.invoke(extract_cli.extractcode, [test_dir])
-    assert '' == result.output
+    assert all(x in result.output for x in ('Extracting archives...', 'Extracting done.'))
 
 
 def test_extractcode_command_works_with_relative_paths(monkeypatch):
@@ -140,7 +140,7 @@ def test_extractcode_command_works_with_relative_paths_verbose(monkeypatch):
         test_src_file = join(test_src_dir, 'basic.zip')
         runner = CliRunner()
         monkeypatch.setattr(click._termui_impl, 'isatty', lambda _: True)
-        result = runner.invoke(extract_cli.extractcode, ['--verbose',test_src_file])
+        result = runner.invoke(extract_cli.extractcode, ['--verbose', test_src_file])
         assert result.exit_code == 0
         # extract the path from the second line of the output
         # check that the path is relative and not absolute
@@ -155,9 +155,10 @@ def test_extractcode_command_works_with_relative_paths_verbose(monkeypatch):
     finally:
         fileutils.delete(test_src_dir)
 
+
 def test_usage_and_help_return_a_correct_script_name_on_all_platforms(monkeypatch):
-    runner = CliRunner()
     monkeypatch.setattr(click._termui_impl, 'isatty', lambda _: True)
+    runner = CliRunner()
     result = runner.invoke(extract_cli.extractcode, ['--help'])
     assert 'Usage: extractcode [OPTIONS]' in result.output
     # this was showing up on Windows
@@ -171,3 +172,58 @@ def test_usage_and_help_return_a_correct_script_name_on_all_platforms(monkeypatc
     result = runner.invoke(extract_cli.extractcode, ['-xyz'])
     # this was showing up on Windows
     assert 'extractcode-script.py' not in result.output
+
+
+def test_extractcode_command_can_extract_archive_with_unicode_names_verbose(monkeypatch):
+    monkeypatch.setattr(click._termui_impl, 'isatty', lambda _: True)
+    test_dir = test_env.get_test_loc('unicodearch', copy=True)
+    runner = CliRunner()
+    result = runner.invoke(extract_cli.extractcode, ['--verbose', test_dir], catch_exceptions=False)
+    assert result.exit_code == 0
+
+    assert 'Sanders' in result.output
+    file_result = [f for f in map(as_posixpath, file_iter(test_dir)) if not f.endswith('unicodepath.tgz')]
+    file_result = [''.join(f.partition('/unicodepath/')[1:]) for f in file_result]
+    file_result = [f for f in file_result if f]
+    expected = [
+        '/unicodepath/Ho_',
+        '/unicodepath/Ho_a',
+        '/unicodepath/koristenjem_Karkkainen_-_Sander.pdf'
+    ]
+    assert sorted(expected) == sorted(file_result)
+
+
+def test_extractcode_command_can_extract_archive_with_unicode_names(monkeypatch):
+    monkeypatch.setattr(click._termui_impl, 'isatty', lambda _: True)
+    test_dir = test_env.get_test_loc('unicodearch', copy=True)
+    runner = CliRunner()
+    result = runner.invoke(extract_cli.extractcode, [test_dir], catch_exceptions=False)
+    assert result.exit_code == 0
+
+    file_result = [f for f in map(as_posixpath, file_iter(test_dir)) if not f.endswith('unicodepath.tgz')]
+    file_result = [''.join(f.partition('/unicodepath/')[1:]) for f in file_result]
+    file_result = [f for f in file_result if f]
+    expected = [
+        '/unicodepath/Ho_',
+        '/unicodepath/Ho_a',
+        '/unicodepath/koristenjem_Karkkainen_-_Sander.pdf'
+    ]
+    assert sorted(expected) == sorted(file_result)
+
+
+def test_extractcode_command_can_extract_shallow(monkeypatch):
+    test_dir = test_env.get_test_loc('extract_shallow', copy=True)
+    monkeypatch.setattr(click._termui_impl, 'isatty', lambda _: True)
+    runner = CliRunner()
+    result = runner.invoke(extract_cli.extractcode, ['--shallow', test_dir])
+    assert result.exit_code == 0
+    file_result = [f for f in map(as_posixpath, file_iter(test_dir)) if not f.endswith('unicodepath.tgz')]
+    file_result = [''.join(f.partition('/top.zip-extract/')[1:]) for f in file_result]
+    file_result = [f for f in file_result if f]
+    # this checks that the zip in top.zip are not extracted
+    expected = [
+        '/top.zip-extract/some3.zip',
+        '/top.zip-extract/some2.zip',
+        '/top.zip-extract/some1.zip',
+    ]
+    assert sorted(expected) == sorted(file_result)

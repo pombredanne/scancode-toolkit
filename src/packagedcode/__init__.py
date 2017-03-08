@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015 nexB Inc. and others. All rights reserved.
+# Copyright (c) 2016 nexB Inc. and others. All rights reserved.
 # http://nexb.com and https://github.com/nexB/scancode-toolkit/
 # The ScanCode software is licensed under the Apache License version 2.0.
 # Data generated with ScanCode require an acknowledgment.
@@ -23,39 +23,48 @@
 #  Visit https://github.com/nexB/scancode-toolkit/ for support and download.
 
 from packagedcode import models
+from packagedcode import maven
 from packagedcode import npm
+from packagedcode import nuget
+from packagedcode import rpm
 
 
 # Note: the order matters: from the most to the least specific
 PACKAGE_TYPES = [
-    models.RpmPackage,
+    rpm.RpmPackage,
     models.DebianPackage,
-    models.JarPackage,
-    models.JarAppPackage,
-    # TODO: add support for these
-    # MavenPackage
+
+    models.JavaJar,
+    models.JavaEar,
+    models.JavaWar,
+    maven.MavenJar,
+    models.IvyJar,
+    models.JBossSar,
+    models.Axis2Mar,
+
     npm.NpmPackage,
     models.BowerPackage,
     models.MeteorPackage,
     models.CpanModule,
-    models.RubyGemPackage,
-    models.AndroidAppPackage,
-    models.AndroidLibPackage,
-    models.MozillaExtPackage,
-    models.ChromeExtPackage,
-    models.IosAppPackage,
+    models.RubyGem,
+    models.AndroidApp,
+    models.AndroidLibrary,
+    models.MozillaExtension,
+    models.ChromeExtension,
+    models.IOSApp,
     models.PythonPackage,
-    models.RarPackage,
     models.CabPackage,
     models.MsiInstallerPackage,
     models.InstallShieldPackage,
     models.NSISInstallerPackage,
-    models.NugetPackage,
+    nuget.NugetPackage,
     models.SharPackage,
     models.AppleDmgPackage,
     models.IsoImagePackage,
     models.SquashfsPackage,
     # these should always come last
+    models.RarPackage,
     models.TarPackage,
-    models.ZipPackage,
-    ]
+    models.PlainZipPackage,
+]
+

@@ -1,5 +1,8 @@
 licenses:
-    - bsd-new
-    - gpl-2.0
     - mit
-sort: yes
+    - gpl
+    - mit
+    - bsd-new
+    - gpl
+
+notes: a full expression would be (MIT or GPL) and (MIT or BSD or  GPL)

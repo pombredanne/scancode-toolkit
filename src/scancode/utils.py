@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015 nexB Inc. and others. All rights reserved.
+# Copyright (c) 2016 nexB Inc. and others. All rights reserved.
 # http://nexb.com and https://github.com/nexB/scancode-toolkit/
 # The ScanCode software is licensed under the Apache License version 2.0.
 # Data generated with ScanCode require an acknowledgment.
@@ -24,10 +24,13 @@
 
 from __future__ import print_function, absolute_import
 
+from urllib import quote_plus
+
 import click
 from click._termui_impl import ProgressBar
 from click.utils import echo
-import posixpath
+
+from commoncode import fileutils
 
 
 """
@@ -63,77 +66,41 @@ class BaseCommand(click.Command):
 
 class EnhancedProgressBar(ProgressBar):
     """
-    Enhanced Click progressbar adding custom first and last messages on enter
-    and exit.
+    Enhanced progressbar ensuring that nothing is displayed when the bar is hidden.
     """
-    def __init__(self, iterable, length=None, fill_char='#', empty_char=' ',
-                 bar_template='%(bar)s', info_sep='  ', show_eta=True,
-                 show_percent=None, show_pos=False, item_show_func=None,
-                 label=None, file=None, color=None, width=30,  # @ReservedAssignment
-                 start_show_func=None, finish_show_func=None):
-        """
-        New parameters added on top of ProgressBar: start_show_func and
-        finish_show_func to drive some display at the start and finish of a
-        progression.
-        """
-        ProgressBar.__init__(self, iterable, length=length, fill_char=fill_char,
-                             empty_char=empty_char, bar_template=bar_template,
-                             info_sep=info_sep, show_eta=show_eta,
-                             show_percent=show_percent, show_pos=show_pos,
-                             item_show_func=item_show_func, label=label,
-                             file=file, color=color, width=width)
-        self.start_show_func = start_show_func
-        self.finish_show_func = finish_show_func
-
-    def __enter__(self):
-        self.render_start()
-        return ProgressBar.__enter__(self)
-
-    def render_start(self):
-        if self.is_hidden:
-            return
-        if self.start_show_func is not None:
-            text = self.start_show_func()
-            if text:
-                echo(text, file=self.file, color=self.color)
-                self.file.flush()
-
-    def render_finish(self):
-        if self.is_hidden:
-            return
-        super(EnhancedProgressBar, self).render_finish()
-        self.show_finish()
-
-    def show_finish(self):
-        if self.finish_show_func is not None:
-            text = self.finish_show_func()
-            if text:
-                echo(text, file=self.file, color=self.color)
-                self.file.flush()
-
     def render_progress(self):
         if not self.is_hidden:
-            return ProgressBar.render_progress(self)
+            return super(EnhancedProgressBar, self).render_progress()
 
 
-class ProgressLogger(EnhancedProgressBar):
+class NoOpProgressBar(EnhancedProgressBar):
     """
-    A subclass of Click ProgressBar providing a simpler and more verbose line-
-    by-line progress reporting.
+    A ProgressBar-like object that does not show any progress.
+    """
+    def __init__(self, *args, **kwargs):
+        super(NoOpProgressBar, self).__init__(*args, **kwargs)
+        self.is_hidden = True
+
+
+class ProgressLogger(ProgressBar):
+    """
+    A subclass of Click ProgressBar providing a verbose line-by-line progress
+    reporting.
 
     In contrast with the progressbar the label, percent, ETA, pos, bar_template
     and other formatting options are ignored.
 
     Progress information are printed as-is and no LF is added. The caller must
-    provide an intem_show_func to display some content and this must terminated
+    provide an item_show_func to display some content and this must terminated
     with a line feed if needed.
 
     If no item_show_func is provided a simple dot is printed for each event.
     """
+    def __init__(self, *args, **kwargs):
+        super(ProgressLogger, self).__init__(*args, **kwargs)
+        self.is_hidden = False
 
     def render_progress(self):
-        if self.is_hidden:
-            return
         line = self.format_progress_line()
         if line:
             # only add new lines if there is an item_show_func
@@ -149,30 +116,12 @@ class ProgressLogger(EnhancedProgressBar):
         if item_info:
             return item_info
 
-    def render_finish(self):
-        if self.is_hidden:
-            return
-        # display a new line after the 'dots' IFF we do not have a show func
-        nl = not bool(self.item_show_func)
-        echo(None, file=self.file, nl=nl, color=self.color)
-        self.show_finish()
-
-
-class NoOpProgressBar(EnhancedProgressBar):
-    """
-    A ProgressBar-like object that does not show any progress.
-    """
-    def __init__(self, *args, **kwargs):
-        ProgressBar.__init__(self, *args, **kwargs)
-        self.is_hidden = True
-
 
 def progressmanager(iterable=None, length=None, label=None, show_eta=True,
                     show_percent=None, show_pos=False, item_show_func=None,
                     fill_char='#', empty_char='-', bar_template=None,
-                    info_sep='  ', width=36, file=None, color=None,  # @ReservedAssignment
-                    verbose=False, start_show_func=None, finish_show_func=None,
-                    quiet=False):
+                    info_sep='  ', width=36, file=None, color=None,
+                    verbose=False, quiet=False):
 
     """This function creates an iterable context manager showing progress as a
     bar (default) or line-by-line log (if verbose is True) while iterating.
@@ -181,12 +130,6 @@ def progressmanager(iterable=None, length=None, label=None, show_eta=True,
     these new arguments added at the end of the signature:
 
     :param verbose:          if False, display a progress bar, otherwise a progress log
-    :param start_show_func:  a function called at the start of iteration that
-                             can return a string to display as an
-                             introduction text before the progress.
-    :param finish_show_func: a function called at the end of iteration that
-                             can return a string to display after the
-                             progress.
     :param quiet:            If True, do not display any progress message.
     """
     if quiet:
@@ -203,18 +146,29 @@ def progressmanager(iterable=None, length=None, label=None, show_eta=True,
                           item_show_func=item_show_func, fill_char=fill_char,
                           empty_char=empty_char, bar_template=bar_template,
                           info_sep=info_sep, file=file, label=label,
-                          width=width, color=color,
-                          start_show_func=start_show_func,
-                          finish_show_func=finish_show_func)
+                          width=width, color=color)
 
 
-def get_relative_path(base, base_resolved, path):
+def encode_path(path):
     """
-    Compute a new posix path based on 'path' relative to the base in original
-    format or a fully resolved posix format.
+    Return a path as ASCII possibly URL-encoded if it cannot be decoded as UTF-8.
     """
-    # this takes care of a single file or a top level directory
-    if base_resolved == path:
-        return base
-    relative = posixpath.join(base, path[len(base_resolved):].lstrip('/'))
-    return relative
+    if isinstance(path, unicode):
+        path = path.encode('utf-8')
+    return quote_plus(path)
+
+
+def get_relative_path(path, len_base_path, base_is_dir):
+    """
+    Return a posix relative path from the posix 'path' relative to a base path of
+    `len_base_path` length where the base is a directory if `base_is_dir` True or a
+    file otherwise.
+    """
+    if base_is_dir:
+        rel_path = path[len_base_path:]
+    else:
+        rel_path = fileutils.file_name(path)
+
+    encoded_segments = [encode_path(p) for p in rel_path.split('/')]
+
+    return '/'.join(encoded_segments).lstrip('/')

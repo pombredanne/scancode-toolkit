@@ -1,3 +1,4 @@
 licenses:
     - apache-1.0
-expected_failure: yes
+    - public-domain
+license_choice: no

@@ -2,6 +2,24 @@
 ScanCode toolkit
 ===============================
 
+
+Build and tests status
+======================
+
++-------+-----------------------------------------------------------------------------+-----------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------+
+|Branch |                         **Linux (Travis)**                                  |                         **MacOSX (Travis)**                                 |                         **Windows (AppVeyor)**                                                |
++=======+=============================================================================+=============================================================================+===============================================================================================+
+|       |.. image:: https://api.travis-ci.org/nexB/scancode-toolkit.png?branch=master |.. image:: https://api.travis-ci.org/nexB/scancode-toolkit.png?branch=master |.. image:: https://ci.appveyor.com/api/projects/status/4webymu0l2ip8utr/branch/master?png=true |
+|Master |   :target: https://travis-ci.org/nexB/scancode-toolkit                      |   :target: https://travis-ci.org/nexB/scancode-toolkit                      |   :target: https://ci.appveyor.com/project/nexB/scancode-toolkit                              |
+|       |   :alt: Linux Master branch tests status                                    |   :alt: MacOSX Master branch tests status                                   |   :alt: Windows Master branch tests status                                                    |
++-------+-----------------------------------------------------------------------------+-----------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------+
+|       |.. image:: https://api.travis-ci.org/nexB/scancode-toolkit.png?branch=develop|.. image:: https://api.travis-ci.org/nexB/scancode-toolkit.png?branch=develop|.. image:: https://ci.appveyor.com/api/projects/status/4webymu0l2ip8utr/branch/develop?png=true|
+|Develop|   :target: https://travis-ci.org/nexB/scancode-toolkit                      |   :target: https://travis-ci.org/nexB/scancode-toolkit                      |   :target: https://ci.appveyor.com/project/nexB/scancode-toolkit                              |
+|       |   :alt: Linux Develop branch tests status                                   |   :alt: MacOSX Develop branch tests status                                  |   :alt: Windows Develop branch tests status                                                   |
++-------+-----------------------------------------------------------------------------+-----------------------------------------------------------------------------+-----------------------------------------------------------------------------------------------+
+
+
+
 ScanCode is a suite of utilities used to scan a codebase for license, copyright
 and other interesting information that can be discovered in files.
 
@@ -13,9 +31,9 @@ ScanCode provides reasonably accurate scan results and the line position where
 each result is found. The results can be formatted as JSON or HTML, and ScanCode
 provides a simple HTML app for quick visualization of scan results.
 
-This initial release of ScanCode scans only for exact license and copyright text.
-We are working on new features, such as analysis of dependencies or improving 
-performance for scanning of larger codebases.
+We are continuously working on new features, such as analysis of dependencies or
+improving  performance for scanning of larger codebases.
+
 See the roadmap for upcoming features:
 https://github.com/nexB/scancode-toolkit/wiki/Roadmap
 
@@ -27,7 +45,17 @@ Quick Start
 
 For Windows, please go to the Comprehensive Installation section instead.
 
-Get Python 2.7 then download and extract the latest ScanCode release from::
+Make sure you have Python 2.7 installed:
+ * Download and install Python 2.7 32 bits for Windows https://www.python.org/ftp/python/2.7.12/python-2.7.12.msi
+ * Download and install Python 2.7 for Mac https://www.python.org/ftp/python/2.7.12/python-2.7.12-macosx10.6.pkg
+
+On Linux install Python 2.7 "devel" and a few extra packages:
+ * ``sudo apt-get install python-dev libbz2 xzutils zlib1g libxml2-dev libxslt1-dev`` for most Debian/Ubuntu
+ * ``sudo apt-get install python-dev libbz2-1.0 xz-utils zlib1g libxml2-dev libxslt1-dev`` for Debian Jessie/8
+ * ``sudo yum install python-devel zlib bzip2-libs xz-libs libxml2-devel libxslt-devel`` for RPM distros
+ * See the Comprehensive Installation bwlow for additional details and other Linux installation
+
+Then download and extract the latest ScanCode release from::
 
     https://github.com/nexB/scancode-toolkit/releases/latest
 
@@ -49,22 +77,31 @@ See more command examples::
     ./scancode --examples
 
 
-Build and tests status
-======================
+Support
+=======
 
-master branch: Linux and MacOSX (Travis) and Windows (Appveyor): 
+If you have a problem, a suggestion or found a bug, please enter a ticket at:
+https://github.com/nexB/scancode-toolkit/issues
 
-.. image:: https://api.travis-ci.org/nexB/scancode-toolkit.png?branch=master
-   :target: https://travis-ci.org/nexB/scancode-toolkit
-.. image:: https://ci.appveyor.com/api/projects/status/o3wl8mu4x18nropv/branch/master?png=true
-   :target: https://ci.appveyor.com/project/nexB/scancode-toolkit
+For other questions, discussions and chats, we have:
 
-develop branch: Linux and MacOSX (Travis) and Windows (Appveyor): 
+- a mailing list at https://lists.sourceforge.net/lists/listinfo/aboutcode-discuss
 
-.. image:: https://api.travis-ci.org/nexB/scancode-toolkit.png?branch=develop
-   :target: https://travis-ci.org/nexB/scancode-toolkit
-.. image:: https://ci.appveyor.com/api/projects/status/o3wl8mu4x18nropv/branch/develop?png=true
-   :target: https://ci.appveyor.com/project/nexB/scancode-toolkit
+- an official #aboutcode IRC channel on freenode 
+  (server chat.freenode.net) for scancode and other related tools. 
+  You can use your favorite IRC client or use the web chat at 
+  https://webchat.freenode.net/
+
+- an official Gitter channel at https://gitter.im/aboutcode-org/discuss
+  Gitter also has an IRC bridge at https://irc.gitter.im/
+
+
+About archives
+==============
+All code must be extracted before running ScanCode since ScanCode will not extract files from tarballs, zip files, etc.  However, the ScanCode Toolkit comes with a utility called extractcode that does recursive archive extraction.
+For example, this command will recursively extract the mytar.tar.bz2 tarball in the mytar.tar.bz2-extract directory::
+    ./extractcode mytar.tar.bz2
+
 
 
 Source code
@@ -82,13 +119,6 @@ License
 * Multiple licenses (GPL2/3, LGPL, MIT, BSD, etc.) for third-party components. 
 
 See the NOTICE file for more details.
-
-
-Support
-=======
-
-If you have a question, a suggestion or find a bug, enter a ticket at:
-https://github.com/nexB/scancode-toolkit/issues
 
 
 Documentation
@@ -125,11 +155,11 @@ System Requirements
 -------------------
 
 **Hardware** : 
-ScanCode will run best with a modern X86 processor and at least 2GB or Ram and 250MB of disk.
+ScanCode will run best with a modern X86 processor and at least 2GB of RAM and 250MB of disk.
 
 **Supported operating systems** : ScanCode should run on these OSes:
 
-* Linux: on most recent 64-bit Linux distributions (32-bit distros are not supported for now),
+* Linux: on most recent 64-bit Linux distributions (32-bit distros are only partially supported),
 * Mac: on recent Mac OSX (10.6.8 and up),
 * Windows: on Windows 7 and up (32- or 64-bit) using a 32-bit Python.
 
@@ -144,18 +174,20 @@ ScanCode needs a Python 2.7 interpreter.
   If Python 2.7 is not available from your package manager, you must compile it from sources.
 
   For instance, visit https://github.com/dejacode/about-code-tool/wiki/BuildingPython27OnCentos6
-  for instruction to compile Python from sources on Centos.
+  for instructions to compile Python from sources on Centos.
 
-  * On Debian/Ubuntu distros, you may need to install these packages: `libbz2 xzutils zlib1g`.
-  * On RPM-based distros, you may need to install these packages: `zlib bzip2-libs xz-libs`.
+  * On Ubuntu 16.04 and later, you will need to install these packages first: ``python-dev bzip2 xz-utils zlib1g libxml2-dev libxslt1-dev``
+  * On most Debian/Ubuntu distros, you will need to install these packages first: ``python-dev libbz2 xzutils zlib1g libxml2-dev libxslt1-dev``
+* On Debian 8 (Jessie), you will need to install these packages first: ``python-dev libbz2-1.0 xz-utils zlib1g libxml2-dev libxslt1-dev``
+  * On RPM-based distros, you will need to install these packages first: ``python-devel zlib bzip2-libs xz-libs libxml2-devel libxslt-devel``
 
 - **On Windows**:
 
-  Use the Python 2.7 (Windows x86 MSI installer) for X86 regardless of whether you run Windows
-  on 32-bit or 64-bit. DO NOT USE Python X86_64 even if you run 64 bit Windows.
+  Use the Python 2.7 32-bit (e.g. the Windows x86 MSI installer) for X86 regardless of whether you run Windows
+  on 32-bit or 64-bit. **DO NOT USE Python X86_64 installer** even if you run 64 bit Windows.
 
   Download Python from this url:
-  https://www.python.org/ftp/python/2.7.10/python-2.7.10.msi
+  https://www.python.org/ftp/python/2.7.12/python-2.7.12.msi
 
   Install Python on the c: drive and use all default installer options.
   See the Windows installation section for more installation details.
@@ -164,7 +196,7 @@ ScanCode needs a Python 2.7 interpreter.
 - **On Mac**:
 
   Download and install Python from this url:
-  https://www.python.org/ftp/python/2.7.10/python-2.7.10-macosx10.6.pkg
+  https://www.python.org/ftp/python/2.7.12/python-2.7.12-macosx10.6.pkg
 
 
 Installation on Linux and Mac
@@ -341,7 +373,6 @@ More (advanced) rules options:
 
 * you can use a ``notes:`` text field to  document this rule.
 * if no license should be detected for your .RULE text, do not add a list of license keys, just add a note.
-  You can also use the special ``not-a-license`` license key as a single `licenses:` item.
 * .RULE text can contain special text regions that can be ignored when scanning for licenses. 
   You can mark a template region in your rule text using {{double curly braces}} and up to five words can
   vary and still match this rule. You must add this field in your .yml data file to mark this rule as a `template`::

@@ -1,1 +1,5 @@
-http://www.perlfoundation.org/attachment/legal/artistic-2_0.txt  http://www.opensource.org/licenses/artistic-license-2.0.php
+License: Artistic
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the Artistic License, which comes with Perl.
+    On Debian GNU/Linux systems, the complete text of the Artistic License
+    can be found in /usr/share/common-licenses/Artistic

@@ -1,15 +1,7 @@
-*.py[co]
-
-# test files that should not be ignored
-!/tests/typecode/data/contenttype/compiled/java/*
-!/tests/typecode/data/contenttype/compiled/python/*
-!/tests/typecode/data/contenttype/compiled/flash/*
-!/tests/typecode/data/contenttype/compiled/linux/*
-!/tests/typecode/data/contenttype/compiled/win/*
-!/tests/typecode/data/contenttype/package/*
+*.py[cod]
 
 # virtualenv and other misc bits
-/src/*.egg-info
+*.egg-info
 /dist
 /build
 /bin
@@ -23,11 +15,13 @@
 /include
 /Include
 /local
+*/local/*
 
 # Installer logs
 pip-log.txt
 
 # Unit test / coverage reports
+.cache
 .coverage
 .coverage.*
 nosetests.xml
@@ -40,6 +34,7 @@ htmlcov
 .project
 .pydevproject
 .idea
+org.eclipse.core.resources.prefs
 
 # Sphinx
 docs/_build
@@ -51,3 +46,16 @@ docs/_build
 .ve
 *.bak
 /.cache/
+
+# test files that should not be ignored
+!/tests/typecode/data/contenttype/compiled/java/*
+!/tests/typecode/data/contenttype/compiled/python/*
+!/tests/typecode/data/contenttype/compiled/flash/*
+!/tests/typecode/data/contenttype/compiled/linux/*
+!/tests/typecode/data/contenttype/compiled/win/*
+!/tests/typecode/data/contenttype/package/*
+
+/local/
+/share/
+/tcl/
+/.eggs/

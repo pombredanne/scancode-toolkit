@@ -1,5 +1,4 @@
 licenses:
-    - apache
     - apache-2.0
-    - public-domain
-sort: yes
+    - apache-2.0
+

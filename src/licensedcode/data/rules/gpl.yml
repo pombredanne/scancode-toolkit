@@ -1,3 +1,4 @@
 licenses:
     - gpl
-template: yes
+minimum_coverage: 100
+

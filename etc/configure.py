@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-# Copyright (c) 2015 nexB Inc. http://www.nexb.com/ - All rights reserved.
+# Copyright (c) 2017 nexB Inc. http://www.nexb.com/ - All rights reserved.
 
 """
 This script a configuration helper to select pip requirement files to install
@@ -75,7 +75,7 @@ elif'win32' in sys_platform:
 elif 'darwin' in sys_platform:
     platform_names = ('posix', 'mac',)
 else:
-    raise Exception('Unsupported OS/platform')
+    raise Exception('Unsupported OS/platform %r' % sys_platform)
     platform_names = tuple()
 
 
@@ -125,14 +125,21 @@ def clean(root_dir):
     Remove cleanable directories and files in root_dir.
     """
     print('* Cleaning ...')
-    cleanable = '''build bin lib Lib include Include Scripts local
-                   django_background_task.log
-                   develop-eggs eggs parts .installed.cfg
-                   .Python
-                   .cache
-                   .settings
-                   pip-selfcheck.json
-                   '''.split()
+    cleanable = '''
+        build
+        bin
+        lib
+        Lib
+        include
+        Include
+        Scripts
+        local
+        .Python
+        .eggs
+        .cache
+        pip-selfcheck.json
+        src/scancode_toolkit.egg-info
+    '''.split()
 
     # also clean __pycache__ if any
     cleanable.extend(find_pycache(root_dir))
@@ -158,7 +165,7 @@ def build_pip_dirs_args(paths, root_dir, option='--extra-search-dir='):
         if not os.path.isabs(path):
             path = os.path.join(root_dir, path)
         if os.path.exists(path):
-            yield option + path
+            yield option + '"' + path + '"'
 
 
 def create_virtualenv(std_python, root_dir, tpp_dirs, quiet=False):
@@ -177,13 +184,14 @@ def create_virtualenv(std_python, root_dir, tpp_dirs, quiet=False):
     vendored Python distributions that pip will use to find required
     components.
     """
-    print("* Configuring Python ...")
+    if not quiet:
+        print("* Configuring Python ...")
     # search virtualenv.py in the tpp_dirs. keep the first found
     venv_py = None
     for tpd in tpp_dirs:
         venv = os.path.join(root_dir, tpd, 'virtualenv.py')
         if os.path.exists(venv):
-            venv_py = venv
+            venv_py = '"' + venv + '"'
             break
 
     # error out if venv_py not found
@@ -197,12 +205,14 @@ def create_virtualenv(std_python, root_dir, tpp_dirs, quiet=False):
     # third parties may be in more than one directory
     vcmd.extend(build_pip_dirs_args(tpp_dirs, root_dir))
     # we create the virtualenv in the root_dir
-    vcmd.append(root_dir)
+    vcmd.append('"' + root_dir + '"')
     call(vcmd, root_dir)
 
 
 def activate(root_dir):
     """ Activate a virtualenv in the current process."""
+    print("* Activating ...")
+    bin_dir = os.path.join(root_dir, 'bin')
     activate_this = os.path.join(bin_dir, 'activate_this.py')
     with open(activate_this) as f:
         code = compile(f.read(), activate_this, 'exec')
@@ -214,28 +224,30 @@ def install_3pp(configs, root_dir, tpp_dirs, quiet=False):
     Install requirements from requirement files found in `configs` with pip,
     using the vendored components in `tpp_dirs`.
     """
-    print("* Installing components ...")
+    if not quiet:
+        print("* Installing components ...")
     requirement_files = get_conf_files(configs, root_dir, requirements)
     for req_file in requirement_files:
         pcmd = ['pip', 'install', '--no-allow-external',
-                '--use-wheel', '--no-index']
+                '--use-wheel', '--no-index', '--no-cache-dir']
         if quiet:
             pcmd += ['--quiet']
         pip_dir_args = list(build_pip_dirs_args(tpp_dirs, root_dir, '--find-links='))
         pcmd.extend(pip_dir_args)
         req_loc = os.path.join(root_dir, req_file)
-        pcmd.extend(['-r' , req_loc])
+        pcmd.extend(['-r' , '"' + req_loc + '"'])
         call(pcmd, root_dir)
 
 
-def run_scripts(configs, root_dir, configured_python):
+def run_scripts(configs, root_dir, configured_python, quiet=False):
     """
     Run Python scripts and shell scripts found in `configs`.
     """
-    print("* Configuring ...")
+    if not quiet:
+        print("* Configuring ...")
     # Run Python scripts for each configurations
     for py_script in get_conf_files(configs, root_dir, python_scripts):
-        cmd = [configured_python, os.path.join(root_dir, py_script)]
+        cmd = [configured_python, '"' + os.path.join(root_dir, py_script) + '"']
         call(cmd, root_dir)
 
     # Run sh_script scripts for each configurations
@@ -338,7 +350,7 @@ if __name__ == '__main__':
         if not os.path.exists(scripts_dir):
             os.makedirs(scripts_dir)
         if not os.path.exists(bin_dir):
-            cmd = ('mklink /J %(bin_dir)s %(scripts_dir)s' % locals()).split()
+            cmd = ('mklink /J "%(bin_dir)s" "%(scripts_dir)s"' % locals()).split()
             call(cmd, root_dir)
     else:
         configured_python = os.path.join(bin_dir, 'python')
@@ -381,7 +393,8 @@ if __name__ == '__main__':
     activate(root_dir)
 
     install_3pp(configs, root_dir, thirdparty_dirs, quiet=run_quiet)
-    run_scripts(configs, root_dir, configured_python)
+    run_scripts(configs, root_dir, configured_python, quiet=run_quiet)
     chmod_bin(bin_dir)
-    print("* Configuration completed.")
-    print()
+    if not run_quiet:
+        print("* Configuration completed.")
+        print()

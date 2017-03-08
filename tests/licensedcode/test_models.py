@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015 nexB Inc. and others. All rights reserved.
+# Copyright (c) 2017 nexB Inc. and others. All rights reserved.
 # http://nexb.com and https://github.com/nexB/scancode-toolkit/
 # The ScanCode software is licensed under the Apache License version 2.0.
 # Data generated with ScanCode require an acknowledgment.
@@ -22,106 +22,202 @@
 #  ScanCode is a free software code scanning tool from nexB Inc. and others.
 #  Visit https://github.com/nexB/scancode-toolkit/ for support and download.
 
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import unicode_literals
 
+from collections import OrderedDict
+import json
 import os
 
 from commoncode.testcase import FileBasedTesting
-from textcode.analysis import Token
+
 from licensedcode import models
+from licensedcode import index
+
+
+TEST_DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
+
+
+def check_json(expected, results, regen=False):
+    if regen:
+        with open(expected, 'wb') as ex:
+            json.dump(results, ex, indent=2)
+    with open(expected) as ex:
+        expected = json.load(ex, object_pairs_hook=OrderedDict)
+    assert expected == results
 
 
 class TestLicense(FileBasedTesting):
-    test_data_dir = os.path.join(os.path.dirname(__file__), 'data')
+    test_data_dir = TEST_DATA_DIR
 
     def test_load_license(self):
         test_dir = self.get_test_loc('models/licenses')
         lics = models.load_licenses(test_dir)
-        # one license is obsolete and not loaded
-        self.assertEqual([u'apache-2.0',
-                          u'bsd-ack-carrot2',
-                          u'w3c-docs-19990405'],
-                         sorted(lics.keys()))
-
-        self.assertTrue(all(isinstance(l, models.License)
-                            for l in lics.values()))
-        # test a sample of a licenses field
-        self.assertTrue('1994-2002 World Wide Web Consortium'
-                        in lics[u'w3c-docs-19990405'].text)
+        # Note: one license is obsolete and not loaded. Other are various exception/version cases
+        results = sorted(l.asdict() for l in lics.values())
+        expected = self.get_test_loc('models/licenses.expected.json')
+        check_json(expected, results)
 
     def test_get_texts(self):
         test_dir = self.get_test_loc('models/licenses')
         lics = models.load_licenses(test_dir)
         for lic in lics.values():
-            self.assertTrue('distribut' in lic.text.lower())
+            assert 'distribut' in lic.text.lower()
 
-    def test_get_rules_from_license_texts(self):
+    def test_build_rules_from_licenses(self):
         test_dir = self.get_test_loc('models/licenses')
         lics = models.load_licenses(test_dir)
-        rules = [r for r in models.get_rules_from_license_texts(lics)]
-        self.assertEqual(4, len(rules))
-        for rule in rules:
-            self.assertTrue('distribut' in rule.text.lower())
+        rules = models.build_rules_from_licenses(lics)
+        results = sorted(r.asdict() for r in rules)
+        expected = self.get_test_loc('models/rules.expected.json')
+        check_json(expected, results)
+
+    def test_validate_licenses(self):
+        errors, warnings, infos = models.License.validate(models.get_licenses())
+        assert {} == errors
+        assert {} == warnings
+        assert infos
 
 
 class TestRule(FileBasedTesting):
-    test_data_dir = os.path.join(os.path.dirname(__file__), 'data')
-
-    def create_test_file(self, text):
-        tf = self.get_temp_file()
-        with open(tf, 'wb') as of:
-            of.write(text)
-        return tf
+    test_data_dir = TEST_DATA_DIR
 
     def test_create_template_rule(self):
-        ttr = models.Rule(text_file=self.create_test_file(u'A one. A {{}}two. A three.'), template=True)
-        toks = [
-            Token(start=0, start_line=0, start_char=0, end_line=0, end_char=8, end=2, gap=5, value=u'a one a', length=3),
-            Token(start=3, start_line=0, start_char=13, end_line=0, end_char=25, end=5, gap=0, value=u'two a three', length=3)
-        ]
-        assert toks == list(ttr.get_tokens())
-        for i in range(len(toks)):
-            self.assertEqual(toks[i], ttr.tokens[i])
+        test_rule = models.Rule(_text='A one. A {{}}two. A three.')
+        expected = ['a', 'one', 'a', 'two', 'a', 'three']
+        assert expected == list(test_rule.tokens())
+        assert 6 == test_rule.length
 
-    def test_create_plain_rule(self):
-        ftr = models.Rule(text_file=self.create_test_file('A one. A two. A three.'))
-        toks = [
-            Token(start=0, start_line=0, start_char=0, end_line=0, end_char=12, end=3, gap=0, value=u'a one a two', length=4),
-            Token(start=1, start_line=0, start_char=2, end_line=0, end_char=15, end=4, gap=0, value=u'one a two a', length=4),
-            Token(start=2, start_line=0, start_char=7, end_line=0, end_char=21, end=5, gap=0, value=u'a two a three', length=4),
-        ]
-        self.assertEqual(toks, list(ftr.get_tokens()))
-        for i in range(len(toks)):
-            self.assertEqual(toks[i], ftr.tokens[i])
+    def test_create_plain_rule_with_text_file(self):
+        def create_test_file(text):
+            tf = self.get_temp_file()
+            with open(tf, 'wb') as of:
+                of.write(text)
+            return tf
+
+        test_rule = models.Rule(text_file=create_test_file('A one. A two. A three.'))
+        expected = ['a', 'one', 'a', 'two', 'a', 'three']
+        assert expected == list(test_rule.tokens())
+        assert 6 == test_rule.length
 
     def test_load_rules(self):
         test_dir = self.get_test_loc('models/rules')
-        rules = models.load_rules(test_dir)
+        rules = list(models.load_rules(test_dir))
         # one license is obsolete and not loaded
         assert 3 == len(rules)
         assert all(isinstance(r, models.Rule) for r in rules)
         # test a sample of a licenses field
-        expected = [[u'lzma-sdk-original'], [u'gpl-2.0'], [u'oclc-2.0']]
+        expected = [['lzma-sdk-original'], ['gpl-2.0'], ['oclc-2.0']]
         assert sorted(expected) == sorted(r.licenses for r in rules)
 
     def test_template_rule_is_loaded_correctly(self):
         test_dir = self.get_test_loc('models/rule_template')
-        rules = models.load_rules(test_dir)
+        rules = list(models.load_rules(test_dir))
         assert 1 == len(rules)
-        rule = rules[0]
-        assert rule.template
 
-    def test_rule_identifier_includes_rule_type(self):
-        r1 = models.Rule(text_file=self.create_test_file('Some text'), template=True)
-        r2 = models.Rule(text_file=self.create_test_file('Some text'), template=False)
-        assert models.rule_identifier(r1) != models.rule_identifier(r2)
+    def test_rule_len_is_computed_correctly(self):
+        test_text = '''zero one two three
+            four {{gap1}}
+            five six seven eight nine ten'''
+        r1 = models.Rule(_text=test_text)
+        list(r1.tokens())
+        assert 11 == r1.length
 
-    def test_rule_identifier_ignores_small_text_differences(self):
-        r1 = models.Rule(text_file=self.create_test_file('Some text'), template=False)
-        r2 = models.Rule(text_file=self.create_test_file(' some  \n  text '), template=False)
-        assert models.rule_identifier(r1) == models.rule_identifier(r2)
+    def test_gaps_at_start_and_end_are_ignored(self):
+        test_text = '''{{gap0}}zero one two three{{gap2}}'''
+        r1 = models.Rule(_text=test_text)
+        assert ['zero', 'one', 'two', 'three'] == list(r1.tokens())
 
-    def test_rule_identifier_includes_structure(self):
-        r1 = models.Rule(text_file=self.create_test_file('Some text'), license_choice=False)
-        r2 = models.Rule(text_file=self.create_test_file('Some text'), license_choice=True)
-        assert models.rule_identifier(r1) != models.rule_identifier(r2)
+    def test_rule_tokens_and_gaps_are_computed_correctly(self):
+        test_text = '''I hereby abandon any{{SAX 2.0 (the)}}, and Release all of {{the SAX 2.0 }}source code of his'''
+        rule = models.Rule(_text=test_text, licenses=['public-domain'])
+
+        rule_tokens = list(rule.tokens())
+        assert ['i', 'hereby', 'abandon', 'any', 'and', 'release', 'all', 'of', 'source', 'code', 'of', 'his'] == rule_tokens
+
+        rule_tokens = list(rule.tokens(lower=False))
+        assert ['I', 'hereby', 'abandon', 'any', 'and', 'Release', 'all', 'of', 'source', 'code', 'of', 'his'] == rule_tokens
+
+    def test_negative(self):
+        assert models.Rule(_text='test_text').negative()
+        assert not models.Rule(_text='test_text', licenses=['mylicense']).negative()
+        assert models.Rule(_text='test_text', licenses=[]).negative()
+
+    def test_Thresholds(self):
+        r1_text = 'licensed under the GPL, licensed under the GPL'
+        r1 = models.Rule(text_file='r1', licenses=['apache-1.1'], _text=r1_text)
+        r2_text = 'licensed under the GPL, licensed under the GPL' * 10
+        r2 = models.Rule(text_file='r1', licenses=['apache-1.1'], _text=r2_text)
+        _idx = index.LicenseIndex([r1, r2])
+        assert models.Thresholds(high_len=4, low_len=4, length=8, small=True, min_high=4, min_len=8) == r1.thresholds()
+        assert models.Thresholds(high_len=31, low_len=40, length=71, small=False, min_high=3, min_len=4) == r2.thresholds()
+
+        r1_text = 'licensed under the GPL,{{}} licensed under the GPL'
+        r1 = models.Rule(text_file='r1', licenses=['apache-1.1'], _text=r1_text)
+        r2_text = 'licensed under the GPL, licensed under the GPL' * 10
+        r2 = models.Rule(text_file='r1', licenses=['apache-1.1'], _text=r2_text)
+
+        _idx = index.LicenseIndex([r1, r2])
+        assert models.Thresholds(high_len=4, low_len=4, length=8, small=True, min_high=4, min_len=8) == r1.thresholds()
+        assert models.Thresholds(high_len=31, low_len=40, length=71, small=False, min_high=3, min_len=4) == r2.thresholds()
+
+    def test_compute_relevance_does_not_change_stored_relevance(self):
+        rule = models.Rule(_text='1', licenses=['public-domain'])
+        rule.relevance = 13
+        rule.has_stored_relevance = True
+        rule.length = 1000
+        rule.compute_relevance()
+        assert 13 == rule.relevance
+
+    def test_compute_relevance_is_zero_for_false_positive(self):
+        rule = models.Rule(_text='1', licenses=['public-domain'])
+        rule.relevance = 13
+        rule.has_stored_relevance = False
+        rule.false_positive = True
+        rule.length = 1000
+        rule.compute_relevance()
+        assert 0 == rule.relevance
+
+    def test_compute_relevance_is_zero_for_negative(self):
+        rule = models.Rule(_text='1', licenses=[])
+        rule.relevance = 13
+        rule.has_stored_relevance = False
+        rule.false_positive = False
+        rule.length = 1000
+        rule.compute_relevance()
+        assert 0 == rule.relevance
+
+    def test_compute_relevance_using_rule_length(self):
+        rule = models.Rule(_text='1', licenses=['some license'])
+        rule.relevance = 13
+        rule.has_stored_relevance = False
+        rule.false_positive = False
+
+        rule.length = 1000
+        rule.compute_relevance()
+        assert 100 == rule.relevance
+
+        rule.length = 1
+        rule.compute_relevance()
+        assert 5 == rule.relevance
+
+        rule.length = 20
+        rule.compute_relevance()
+        assert 100 == rule.relevance
+
+        rule.length = 21
+        rule.compute_relevance()
+        assert 100 == rule.relevance
+
+        rule.length = 0
+        rule.compute_relevance()
+        assert 0 == rule.relevance
+
+        rule.length = 12
+        rule.compute_relevance()
+        assert 60 == rule.relevance
+
+        rule.length = 18
+        rule.compute_relevance()
+        assert 90 == rule.relevance

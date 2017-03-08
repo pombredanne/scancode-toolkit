@@ -1,3 +1,4 @@
 licenses:
     - apache-1.1
-notes: Apache 1.1 URL as found in Eclipse
+minimum_coverage: 100
+notes: Old, original Apache 1.1 URL

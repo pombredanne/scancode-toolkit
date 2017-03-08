@@ -1,12 +1,13 @@
 licenses:
-    - bsd-new
-    - bsd-new
-    - bsd-new
+    - lgpl-2.1-plus
+    - gpl-2.0-plus
+    - bsd-original-uc
+    - historical
     - bsd-new
     - carnegie-mellon-contributors
-    - gpl-2.0-plus
-    - historical
+    - bsd-new
+    - bsd-new
     - inner-net-2.0
-    - lgpl-2.1-plus
+notes: todo refine expectations
 expected_failure: yes
-sort: yes
+

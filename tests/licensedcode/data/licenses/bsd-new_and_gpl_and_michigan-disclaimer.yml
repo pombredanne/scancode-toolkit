@@ -1,5 +1,4 @@
 licenses:
-    - bsd-new
-    - gpl
     - michigan-disclaimer
-sort: yes
+    - bsd-new
+    - gpl-2.0

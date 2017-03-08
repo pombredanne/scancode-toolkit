@@ -1,12 +1,11 @@
 key: tcl
 short_name: TCL/TK License
 name: TCL/TK License
-category: Attribution
+
+category: Permissive
 owner: Tcl Developer Xchange
 homepage_url: http://www.tcl.tk/software/tcltk/license.html
 spdx_license_key: TCL
-spdx_full_name: TCL/TK License
-spdx_url: http://spdx.org/licenses/TCL
 text_urls:
     - http://www.tcl.tk/software/tcltk/license.html
 other_urls:

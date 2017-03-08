@@ -1,8 +1,14 @@
 licenses:
-    - afl-2.1
-    - apache
     - bsd-new
-    - gpl
-    - lgpl
+    - afl-2.1
     - mpl
-sort: yes
+    - lgpl
+    - gpl
+    - apache-2.0
+    - apache-2.0
+    - afl-2.1
+    - bsd-new
+    - bsd-new
+    - bsd-new
+    - afl-2.1
+

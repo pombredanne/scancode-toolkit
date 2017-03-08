@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015 nexB Inc. and others. All rights reserved.
+# Copyright (c) 2017 nexB Inc. and others. All rights reserved.
 # http://nexb.com and https://github.com/nexB/scancode-toolkit/
 # The ScanCode software is licensed under the Apache License version 2.0.
 # Data generated with ScanCode require an acknowledgment.
@@ -22,7 +22,9 @@
 #  ScanCode is a free software code scanning tool from nexB Inc. and others.
 #  Visit https://github.com/nexB/scancode-toolkit/ for support and download.
 
-from __future__ import print_function, absolute_import
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from collections import OrderedDict
 
@@ -55,78 +57,177 @@ def get_copyrights(location):
     """
     from cluecode.copyrights import detect_copyrights
 
-    for copyrights, _, _, _, start_line, end_line in detect_copyrights(location):
+    for copyrights, authors, _years, holders, start_line, end_line in detect_copyrights(location):
         if not copyrights:
             continue
         result = OrderedDict()
         # FIXME: we should call this copyright instead, and yield one item per statement
         result['statements'] = copyrights
+        result['holders'] = holders
+        result['authors'] = authors
         result['start_line'] = start_line
         result['end_line'] = end_line
         yield result
 
 
-DEJACODE_LICENSE_URL = 'https://enterprise.dejacode.com/license_library/Demo/{}/'
-
-
-def get_licenses(location):
+def get_emails(location):
     """
-    Yield an iterable of dictionaries of license data detected in the file at
-    location for each detected license.
+    Yield an iterable of dictionaries of emails detected in the file at
+    location.
     """
-    from licensedcode.models import get_license
-    from licensedcode.detect import get_license_matches
+    from cluecode.finder import find_emails
+    for email, line_num  in find_emails(location):
+        if not email:
+            continue
+        misc = OrderedDict()
+        misc['email'] = email
+        misc['start_line'] = line_num
+        misc['end_line'] = line_num
+        yield misc
 
-    for match in get_license_matches(location):
+
+def get_urls(location):
+    """
+    Yield an iterable of dictionaries of urls detected in the file at
+    location.
+    """
+    from cluecode.finder import find_urls
+    for urls, line_num  in find_urls(location):
+        if not urls:
+            continue
+        misc = OrderedDict()
+        misc['url'] = urls
+        misc['start_line'] = line_num
+        misc['end_line'] = line_num
+        yield misc
+
+
+DEJACODE_LICENSE_URL = 'https://enterprise.dejacode.com/urn/urn:dje:license:{}'
+SPDX_LICENSE_URL = 'https://spdx.org/licenses/{}'
+
+
+def get_licenses(location, min_score=0, include_text=False, diag=False):
+    """
+    Yield dictionaries of license data detected in the file at location.
+
+    `minimum_score` is a minimum score threshold from 0 to 100. The default is 0
+    means that all license matches will be returned. With any other value matches
+    that have a score below minimum score with not be returned.
+
+    If `diag` is True, additional match details are returned with the matched_rule
+    key of the returned mapping.
+    """
+    from licensedcode.index import get_index
+    from licensedcode.match import get_full_matched_text
+    from licensedcode.models import get_licenses as licenses_details
+
+    idx = get_index()
+    licenses = licenses_details()
+
+    for match in idx.match(location=location, min_score=min_score):
+        if include_text:
+            matched_text = u''.join(get_full_matched_text(match, location=location,
+                                                          idx=idx, whole_lines=False))
         for license_key in match.rule.licenses:
-            lic = get_license(license_key)
+            lic = licenses.get(license_key)
             result = OrderedDict()
             result['key'] = lic.key
+            result['score'] = match.score()
             result['short_name'] = lic.short_name
             result['category'] = lic.category
             result['owner'] = lic.owner
             result['homepage_url'] = lic.homepage_url
             result['text_url'] = lic.text_urls[0] if lic.text_urls else ''
             result['dejacode_url'] = DEJACODE_LICENSE_URL.format(lic.key)
-            result['spdx_license_key'] = lic.spdx_license_key
-            result['spdx_url'] = lic.spdx_url
-            result['start_line'] = match.query_position.start_line
-            result['end_line'] = match.query_position.end_line
+            spdx_key = lic.spdx_license_key
+            result['spdx_license_key'] = spdx_key
+            if spdx_key:
+                spdx_key = lic.spdx_license_key.rstrip('+')
+                spdx_url = SPDX_LICENSE_URL.format(spdx_key)
+            else:
+                spdx_url = ''
+            result['spdx_url'] = spdx_url
+            result['start_line'] = match.start_line
+            result['end_line'] = match.end_line
+            matched_rule = result['matched_rule'] = OrderedDict()
+            matched_rule['identifier'] = match.rule.identifier
+            matched_rule['license_choice'] = match.rule.license_choice
+            matched_rule['licenses'] = match.rule.licenses
+            if diag:
+                matched_rule['matcher'] = match.matcher
+                matched_rule['rule_length'] = match.rule.length
+                matched_rule['matched_length'] = match.ilen()
+                matched_rule['match_coverage'] = match.coverage()
+                matched_rule['rule_relevance'] = match.rule.relevance
+            if include_text:
+                result['matched_text'] = matched_text
             yield result
 
 
-def get_file_infos(location):
+def get_file_infos(location, as_list=True):
     """
     Return a list of dictionaries of informations collected from the file or
     directory at location.
     """
     from commoncode import fileutils
     from commoncode import filetype
-    from commoncode.hash import sha1, md5
+    from commoncode.hash import multi_checksums
+    from scancode import utils
     from typecode import contenttype
 
-    T = contenttype.get_type(location)
-    is_file = T.is_file
-    is_dir = T.is_dir
     infos = OrderedDict()
+    is_file = filetype.is_file(location)
+    is_dir = filetype.is_dir(location)
+
+    T = contenttype.get_type(location)
+
     infos['type'] = filetype.get_type(location, short=False)
-    infos['name'] = fileutils.file_name(location)
+    infos['name'] = utils.encode_path(fileutils.file_name(location))
     infos['extension'] = is_file and fileutils.file_extension(location) or ''
     infos['date'] = is_file and filetype.get_last_modified_date(location) or None
     infos['size'] = T.size
-    infos['sha1'] = is_file and sha1(location) or None
-    infos['md5'] = is_file and md5(location) or None
+    infos.update(multi_checksums(location, ('sha1', 'md5',)))
     infos['files_count'] = is_dir and filetype.get_file_count(location) or None
     infos['mime_type'] = is_file and T.mimetype_file or None
     infos['file_type'] = is_file and T.filetype_file or None
     infos['programming_language'] = is_file and T.programming_language or None
-    infos['is_binary'] = is_file and T.is_binary or None
-    infos['is_text'] = is_file and T.is_text or None
-    infos['is_archive'] = is_file and T.is_archive or None
-    infos['is_media'] = is_file and T.is_media or None
-    infos['is_source'] = is_file and T.is_source or None
-    infos['is_script'] = is_file and T.is_script or None
-    return [infos]
+    infos['is_binary'] = bool(is_file and T.is_binary)
+    infos['is_text'] = bool(is_file and T.is_text)
+    infos['is_archive'] = bool(is_file and T.is_archive)
+    infos['is_media'] = bool(is_file and T.is_media)
+    infos['is_source'] = bool(is_file and T.is_source)
+    infos['is_script'] = bool(is_file and T.is_script)
+
+    if as_list:
+        return [infos]
+    else:
+        return infos
+
+
+# FIXME: this smells bad
+def _empty_file_infos():
+    """
+    Return an empty mapping of info key/values, used in case of failure.
+    """
+    infos = OrderedDict()
+    infos['type'] = None
+    infos['name'] = None
+    infos['extension'] = None
+    infos['date'] = None
+    infos['size'] = None
+    infos['sha1'] = None
+    infos['md5'] = None
+    infos['files_count'] = None
+    infos['mime_type'] = None
+    infos['file_type'] = None
+    infos['programming_language'] = None
+    infos['is_binary'] = False
+    infos['is_text'] = False
+    infos['is_archive'] = False
+    infos['is_media'] = False
+    infos['is_source'] = False
+    infos['is_script'] = False
+    return infos
 
 
 def get_package_infos(location):
@@ -138,5 +239,4 @@ def get_package_infos(location):
     package = recognize_packaged_archives(location)
     if not package:
         return []
-    return [package.as_dict(simple=True)]
-
+    return [package.as_dict()]

@@ -1,11 +1,13 @@
 licenses:
-    - bsd-new
-    - bsd-new
-    - bsd-simplified
-    - lgpl
     - lgpl-2.0-plus
-    - lgpl-2.1-plus
-    - mpl-1.0
+    - lgpl-2.1
     - openldap-2.8
+    - mpl-1.0
+    - lgpl
+    - lgpl-2.1
+    - mpl-1.0
+    - bsd-new
+    - bsd-new
     - public-domain
-sort: yes
+expected_failure: yes
+

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015 nexB Inc. and others. All rights reserved.
+# Copyright (c) 2016 nexB Inc. and others. All rights reserved.
 # http://nexb.com and https://github.com/nexB/scancode-toolkit/
 # The ScanCode software is licensed under the Apache License version 2.0.
 # Data generated with ScanCode require an acknowledgment.
@@ -45,17 +45,18 @@ from extractcode import special_package
 from extractcode import patch
 from extractcode import sevenzip
 from extractcode import libarchive2
-from extractcode import extracted_files
 from extractcode.uncompress import uncompress_gzip
 from extractcode.uncompress import uncompress_bzip2
 
 
 logger = logging.getLogger(__name__)
-DEBUG = False
-DEBUG_DEEP = False
-# import sys
-# logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
-# logger.setLevel(logging.DEBUG)
+TRACE = False
+TRACE_DEEP = False
+
+if TRACE:
+    import sys
+    logging.basicConfig(stream=sys.stdout)
+    logger.setLevel(logging.DEBUG)
 
 
 
@@ -84,29 +85,6 @@ For background on archive and compressed file formats see:
  - http://en.wikipedia.org/wiki/List_of_archive_formats
  - http://en.wikipedia.org/wiki/List_of_file_formats#Archive_and_compressed
 """
-
-# high level aliases to lower level extraction functions
-extract_tar = libarchive2.extract
-extract_patch = patch.extract
-
-extract_deb = libarchive2.extract
-extract_ar = libarchive2.extract
-extract_msi = sevenzip.extract
-extract_cpio = libarchive2.extract
-extract_7z = libarchive2.extract
-extract_zip = libarchive2.extract
-
-extract_iso = sevenzip.extract
-extract_rar = sevenzip.extract
-extract_rpm = sevenzip.extract
-extract_xz = sevenzip.extract
-extract_lzma = sevenzip.extract
-extract_squashfs = sevenzip.extract
-extract_cab = sevenzip.extract
-extract_nsis = sevenzip.extract
-extract_ishield = sevenzip.extract
-extract_Z = sevenzip.extract
-
 
 # if strict, all hanlders criteria must be matched for it to be selected
 Handler = namedtuple('Handler', ['name', 'filetypes', 'mimetypes', 'extensions', 'kind', 'extractors', 'strict'])
@@ -199,15 +177,16 @@ def get_handlers(location):
             mime_matched = handler.mimetypes and any(m in mtype for m in handler.mimetypes)
             extension_matched = handler.extensions and location.lower().endswith(handler.extensions)
 
-            if DEBUG_DEEP:
-                logger.debug('get_handlers: %(location)s: ftype: %(ftype)s, mtype: %(mtype)s ' % locals())
+            if TRACE_DEEP:
+                handler_name = handler.name
+                logger.debug('get_handlers: considering %(handler_name)r  handler for %(location)s: ftype: %(ftype)s, mtype: %(mtype)s ' % locals())
                 logger.debug('get_handlers: %(location)s: matched type: %(type_matched)s, mime: %(mime_matched)s, ext: %(extension_matched)s' % locals())
 
             if handler.strict and not all([type_matched, mime_matched, extension_matched]):
                 continue
 
             if type_matched or mime_matched or extension_matched:
-                if DEBUG_DEEP:
+                if TRACE_DEEP:
                     logger.debug('get_handlers: %(location)s: matched type: %(type_matched)s, mime: %(mime_matched)s, ext: %(extension_matched)s' % locals())
                     logger.debug('get_handlers: %(location)s: handler: %(handler)r' % locals())
                 yield handler, type_matched, mime_matched, extension_matched
@@ -319,32 +298,90 @@ def extract_twice(location, target_dir, extractor1, extractor2):
     covers most common cases.
     """
     abs_location = os.path.abspath(os.path.expanduser(location))
-    abs_target_dir = os.path.abspath(os.path.expanduser(target_dir))
+    abs_target_dir = unicode(os.path.abspath(os.path.expanduser(target_dir)))
     # extract first the intermediate payload to a temp dir
-    temp_target = fileutils.get_temp_dir('extract')
+    temp_target = unicode(fileutils.get_temp_dir('extract'))
     warnings = extractor1(abs_location, temp_target)
-    if DEBUG:
+    if TRACE:
         logger.debug('extract_twice: temp_target: %(temp_target)r' % locals())
 
     # extract this intermediate payload to the final target_dir
     try:
-        inner_archives = list(extracted_files(temp_target))
+        inner_archives = list(fileutils.file_iter(temp_target))
         if not inner_archives:
             warnings.append(location + ': No files found in archive.')
         else:
             for extracted1_loc in inner_archives:
-                if DEBUG:
+                if TRACE:
                     logger.debug('extract_twice: extractor2: %(extracted1_loc)r' % locals())
-                warnings.extend(extractor2(extracted1_loc, target_dir))
+                warnings.extend(extractor2(extracted1_loc, abs_target_dir))
     finally:
         # cleanup the temporary output from extractor1
         fileutils.delete(temp_target)
     return warnings
 
 
-"""
-List of archive handlers.
-"""
+def extract_with_fallback(location, target_dir, extractor1, extractor2):
+    """
+    Extract archive at `location` to `target_dir` trying first `extractor1` function.
+    If extract fails, attempt extraction again with the `extractor2` function.
+    Return a list of warning messages. Raise exceptions on errors.
+
+    Note: there are a few cases where the primary extractor for a type may fail and
+    a secondary extractor will succeed.
+    """
+    abs_location = os.path.abspath(os.path.expanduser(location))
+    abs_target_dir = unicode(os.path.abspath(os.path.expanduser(target_dir)))
+    # attempt extract first to a temp dir
+    temp_target1 = unicode(fileutils.get_temp_dir('extract1'))
+    try:
+        warnings = extractor1(abs_location, temp_target1)
+        if TRACE:
+            logger.debug('extract_with_fallback: temp_target1: %(temp_target1)r' % locals())
+        fileutils.copytree(temp_target1, abs_target_dir)
+    except:
+        try:
+            temp_target2 = unicode(fileutils.get_temp_dir('extract2'))
+            warnings = extractor2(abs_location, temp_target2)
+            if TRACE:
+                logger.debug('extract_with_fallback: temp_target2: %(temp_target2)r' % locals())
+            fileutils.copytree(temp_target2, abs_target_dir)
+        finally:
+            fileutils.delete(temp_target2)
+    finally:
+        fileutils.delete(temp_target1)
+    return warnings
+
+
+# High level aliases to lower level extraction functions
+########################################################
+extract_tar = libarchive2.extract
+extract_patch = patch.extract
+
+extract_deb = libarchive2.extract
+extract_ar = libarchive2.extract
+extract_msi = sevenzip.extract
+extract_cpio = libarchive2.extract
+
+# sevenzip should be best at extracting 7zip but most often libarchive is better first
+extract_7z = functools.partial(extract_with_fallback, extractor1=libarchive2.extract, extractor2=sevenzip.extract)
+
+extract_zip = libarchive2.extract
+extract_iso = sevenzip.extract
+extract_rar = sevenzip.extract
+extract_rpm = sevenzip.extract
+extract_xz = sevenzip.extract
+extract_lzma = sevenzip.extract
+extract_squashfs = sevenzip.extract
+extract_cab = sevenzip.extract
+extract_nsis = sevenzip.extract
+extract_ishield = sevenzip.extract
+extract_Z = sevenzip.extract
+extract_xarpkg = sevenzip.extract
+
+
+# Archive handlers.
+####################
 
 TarHandler = Handler(
     name='Tar',
@@ -470,6 +507,18 @@ JavaJarHandler = Handler(
     strict=False
 )
 
+# See https://projects.spring.io/spring-boot/
+# this is a ZIP with a shell header (e.g. a self-executing zip of sorts)
+SpringBootShellJarHandler = Handler(
+    name='Springboot Java Jar package',
+    filetypes=('Bourne-Again shell script executable (binary data)',),
+    mimetypes=('text/x-shellscript',),
+    extensions=('.jar', ),
+    kind=package,
+    extractors=[extract_zip],
+    strict=False
+)
+
 JavaJarZipHandler = Handler(
     name='Java Jar package',
     filetypes=('zip archive',),
@@ -544,8 +593,20 @@ TarGzipHandler = Handler(
     name='Tar gzip',
     filetypes=('gzip compressed',),
     mimetypes=('application/x-gzip',),
-    extensions=('.tgz', '.tar.gz', '.tar.gzip', '.targz',
-          '.targzip', '.tgzip',),
+    extensions=('.tgz', '.tar.gz', '.tar.gzip', '.targz', '.targzip', '.tgzip',),
+    kind=regular_nested,
+    extractors=[extract_tar],
+    strict=False
+)
+
+#https://wiki.openwrt.org/doc/techref/opkg: ipk
+# http://downloads.openwrt.org/snapshots/trunk/x86/64/packages/base/
+
+OpkgHandler = Handler(
+    name='OPKG package',
+    filetypes=('gzip compressed',),
+    mimetypes=('application/x-gzip',),
+    extensions=('.ipk',),
     kind=regular_nested,
     extractors=[extract_tar],
     strict=False
@@ -553,9 +614,9 @@ TarGzipHandler = Handler(
 
 GzipHandler = Handler(
     name='Gzip',
-    filetypes=('gzip compressed',),
+    filetypes=('gzip compressed', 'gzip compressed data'),
     mimetypes=('application/x-gzip',),
-    extensions=('.gz', '.gzip',),
+    extensions=('.gz', '.gzip', '.wmz'),
     kind=regular,
     extractors=[uncompress_gzip],
     strict=False
@@ -680,7 +741,7 @@ DebHandler = Handler(
     name='Debian package',
     filetypes=('debian binary package',),
     mimetypes=('application/x-archive', 'application/vnd.debian.binary-package',),
-    extensions=('.deb',),
+    extensions=('.deb','.udeb',),
     kind=package,
     extractors=[extract_deb],
     strict=True
@@ -766,6 +827,26 @@ AppleDmgHandler = Handler(
     strict=True
 )
 
+ApplePkgHandler = Handler(
+    name='Apple pkg or mpkg package installer',
+    filetypes=('xar archive',),
+    mimetypes=('application/octet-stream',),
+    extensions=('.pkg', '.mpkg',),
+    kind=package,
+    extractors=[extract_xarpkg],
+    strict=True
+)
+
+XarHandler = Handler(
+    name='Xar archive v1',
+    filetypes=('xar archive',),
+    mimetypes=('application/octet-stream',),
+    extensions=('.xar',),
+    kind=package,
+    extractors=[extract_xarpkg],
+    strict=True
+)
+
 IsoImageHandler = Handler(
     name='ISO CD image',
     filetypes=('iso 9660 cd-rom', 'high sierra cd-rom',),
@@ -796,6 +877,7 @@ PatchHandler = Handler(
     strict=True
 )
 
+# Actual list of handlers
 
 archive_handlers = [
     TarHandler,
@@ -810,6 +892,7 @@ archive_handlers = [
     IosAppHandler,
     JavaJarHandler,
     JavaJarZipHandler,
+    SpringBootShellJarHandler,
     JavaWebHandler,
     PythonHandler,
     XzHandler,
@@ -824,6 +907,8 @@ archive_handlers = [
     RarHandler,
     CabHandler,
     MsiInstallerHandler,
+    ApplePkgHandler,
+    XarHandler,
     # notes: this may catch all exe and fails too often
     InstallShieldHandler,
     NSISInstallerHandler,

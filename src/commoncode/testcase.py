@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2015 nexB Inc. and others. All rights reserved.
+# Copyright (c) 2017 nexB Inc. and others. All rights reserved.
 # http://nexb.com and https://github.com/nexB/scancode-toolkit/
 # The ScanCode software is licensed under the Apache License version 2.0.
 # Data generated with ScanCode require an acknowledgment.
@@ -22,8 +22,12 @@
 #  ScanCode is a free software code scanning tool from nexB Inc. and others.
 #  Visit https://github.com/nexB/scancode-toolkit/ for support and download.
 
+"""
+FIXME: TEMPORARY COPY of commoncode.testcase to handle new semantics for get_test_loc
+"""
 
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import
+from __future__ import print_function
 
 from unittest import TestCase as TestCaseClass
 
@@ -91,14 +95,18 @@ def to_os_native_path(path):
     return path
 
 
-def get_test_loc(test_path, test_data_dir):
+def get_test_loc(test_path, test_data_dir, debug=False, exists=True):
     """
     Given a `test_path` relative to the `test_data_dir` directory, return the
     location to a test file or directory for this path. No copy is done.
     """
+    if debug:
+        import inspect
+        caller = inspect.stack()[1][3]
+        print('\nget_test_loc,%(caller)s,"%(test_path)s","%(test_data_dir)s"' % locals())
+
     assert test_path
     assert test_data_dir
-
 
     if not os.path.exists(test_data_dir):
         raise IOError("[Errno 2] No such directory: test_data_dir not found:"
@@ -107,7 +115,7 @@ def get_test_loc(test_path, test_data_dir):
     tpath = to_os_native_path(test_path)
     test_loc = os.path.abspath(os.path.join(test_data_dir, tpath))
 
-    if not os.path.exists(test_loc):
+    if exists and not os.path.exists(test_loc):
         raise IOError("[Errno 2] No such file or directory: "
                       "test_path not found: '%(test_loc)s'" % locals())
 
@@ -122,13 +130,18 @@ class FileDrivenTesting(object):
     """
     test_data_dir = None
 
-    def get_test_loc(self, test_path, copy=False):
+    def get_test_loc(self, test_path, copy=False, debug=False):
         """
         Given a `test_path` relative to the self.test_data_dir directory, return the
         location to a test file or directory for this path. Copy to a temp
         test location if `copy` is True.
         """
-        test_loc = get_test_loc(test_path, self.test_data_dir)
+        if debug:
+            import inspect
+            caller = inspect.stack()[1][3]
+            print('\nself.get_test_loc,%(caller)s,"%(test_path)s"' % locals())
+
+        test_loc = get_test_loc(test_path, self.test_data_dir, debug=debug)
         if copy:
             base_name = os.path.basename(test_loc)
             if filetype.is_file(test_loc):
@@ -207,6 +220,7 @@ class FileDrivenTesting(object):
         Given an archive file identified by test_path relative
         to a test files directory, return a new temp directory where the
         archive file has been extracted using extract_func.
+        If `verbatim` is True preserve the permissions.
         """
         assert test_path and test_path != ''
         test_path = to_os_native_path(test_path)
@@ -226,6 +240,7 @@ class FileDrivenTesting(object):
 def extract_tar(location, target_dir, verbatim=False):
     """
     Extract a tar archive at location in the target_dir directory.
+    If `verbatim` is True preserve the permissions.
     """
     with open(location, 'rb') as input_tar:
         tar = tarfile.open(fileobj=input_tar)
